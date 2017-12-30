@@ -269,17 +269,19 @@ String getZoneCmd(byte *buffer,char card) {
       }
     }
   }
+  String theCmd = "pass";
   if (cmdIndex>-1) {
     if (card=='f') {
-      return cmd_f[cmdIndex];
+      theCmd = cmd_f[cmdIndex];
     }
     else {
-      return cmd_b[cmdIndex];
+      theCmd = cmd_b[cmdIndex];
     }
   }
-  else {
-    return "pass";
+  if (theCmd=="00000000") {
+    theCmd = "pass";
   }
+  return theCmd;
 }
 
 bool safe_f = true; // 前方无障碍

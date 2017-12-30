@@ -1,0 +1,19 @@
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\bin\Debug\WiFiRC.exe.config
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\bin\Debug\WiFiRC.exe
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\bin\Debug\WiFiRC.pdb
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csprojResolveAssemblyReference.cache
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Form1.resources
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.Properties.Resources.resources
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csproj.GenerateResource.Cache
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.exe
+C:\Users\沈立文\Documents\Visual Studio 2017\Projects\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.pdb
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\bin\Debug\WiFiRC.exe.config
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\bin\Debug\WiFiRC.exe
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\bin\Debug\WiFiRC.pdb
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csprojResolveAssemblyReference.cache
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WindowsFormsApp1.Form1.resources
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.Properties.Resources.resources
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csproj.GenerateResource.Cache
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csproj.CoreCompileInputs.cache
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.exe
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.pdb
