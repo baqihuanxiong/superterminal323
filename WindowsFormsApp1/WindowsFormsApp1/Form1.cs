@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Net;
 using System.Net.Sockets;
+using System.IO;
 
 namespace WindowsFormsApp1
 {
@@ -38,6 +39,7 @@ namespace WindowsFormsApp1
                 try
                 {
                     clientSock.Connect(new IPEndPoint(ip, port));
+                    clientSock.ReceiveTimeout = 200;
                     btn_conn.Text = "断开连接";
                     connState = true;
                 }
@@ -48,7 +50,6 @@ namespace WindowsFormsApp1
             }
             else
             {
-                clientSock.Shutdown(SocketShutdown.Both);
                 clientSock.Close();
                 btn_conn.Text = "连接";
                 connState = false;
@@ -105,13 +106,16 @@ namespace WindowsFormsApp1
 
         private void pictureBox1_MouseUp(object sender, MouseEventArgs e)
         {
-            string person = tb_addr.Text;
-            clientSock.Send(Encoding.ASCII.GetBytes('@' + person + ' ' + "f000r000" + "\r\n"));
-            iconMoving = false;
-            reDraw(pictureBox1.Width/2,pictureBox1.Height/2);
-            lb_x.Text = "x:" + 0;
-            lb_y.Text = "y:" + 0;
-            timer1.Stop();
+            if (iconMoving)
+            {
+                string person = tb_addr.Text;
+                clientSock.Send(Encoding.ASCII.GetBytes('@' + person + ' ' + "f000r000" + "\r\n"));
+                iconMoving = false;
+                reDraw(pictureBox1.Width / 2, pictureBox1.Height / 2);
+                lb_x.Text = "x:" + 0;
+                lb_y.Text = "y:" + 0;
+                timer1.Stop();
+            }
         }
 
         private void reDraw(int x,int y)
@@ -161,6 +165,51 @@ namespace WindowsFormsApp1
                         listBox1.Items.Add(clients[i]);
                     }
                 }
+            }
+        }
+
+        private void btn_send_Click(object sender, EventArgs e)
+        {
+            string line = tb_send.Text;
+            if (connState&&line.Length>0)
+            {
+                DateTime dt = DateTime.Now;
+                string t = "我[" + dt.ToString() + "]:" + line;
+                List<string> lines = richTextBox1.Lines.ToList();
+                lines.Add(t);
+                richTextBox1.Lines = lines.ToArray();
+                tb_send.Text = "";
+                try
+                {
+                    clientSock.Send(Encoding.ASCII.GetBytes(line + "\r\n"));
+                    int receiveLength = clientSock.Receive(result);
+                    if (receiveLength > 0)
+                    {
+                        t = "服务器[" + dt.ToString() + ']' + Encoding.ASCII.GetString(result, 0, receiveLength);
+                        lines = richTextBox1.Lines.ToList();
+                        lines.Add(t);
+                        richTextBox1.Lines = lines.ToArray();
+                    }
+                }
+                catch
+                {
+
+                }
+            }
+        }
+
+        private void btn_clearTB_Click(object sender, EventArgs e)
+        {
+            richTextBox1.Clear();
+        }
+
+        private void btn_sendFile_Click(object sender, EventArgs e)
+        {
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                string fn = openFileDialog1.FileName;
+                string txt = File.ReadAllText(@fn);
+                tb_send.Text += ' ' + txt;
             }
         }
     }
