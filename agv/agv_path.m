@@ -14,12 +14,19 @@ xfs = [];
 xbs = [];
 yfs = [];
 ybs = [];
+ths = [];
 for t=0:delt_t:10
     xf = xf+v0*cos(theta-alpha)/cos(alpha)*delt_t;
     yf = yf+v0*sin(theta-alpha)/cos(alpha)*delt_t;
     xb = xb+v0*cos(theta)*delt_t;
     yb = yb+v0*sin(theta)*delt_t;
-    theta = atan((yf-yb)/(xf-xb));
+    temp_dx = xf-xb;
+    if temp_dx<0
+        theta = pi+atan((yf-yb)/temp_dx);
+    else
+        theta = atan((yf-yb)/temp_dx);
+    end
+    ths = [ths theta];
     if beta*t<pi/6
         alpha = beta*t;
     else

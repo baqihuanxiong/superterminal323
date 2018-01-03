@@ -21,19 +21,16 @@
 #include<Servo.h>
 #include<SPI.h>
 #include<Wire.h>
-#include<SoftwareSerial.h>
 #include<Metro.h>
 
 
-SoftwareSerial ESP8266(3,4); // 软件串口 RX 3 TX 4
-
-const int RST_PIN_F = 9;
-const int SS_PIN_F = 10;
+const int RST_PIN_F = 46;
+const int SS_PIN_F = 49;
 MFRC522 rfid_f(SS_PIN_F, RST_PIN_F); // 前置RFID感应模块
 byte nuidPICC_F[4]; // 存储前卡识别到的RFID标签id
 
-const int RST_PIN_B = 2;
-const int SS_PIN_B = A1;
+const int RST_PIN_B = 48;
+const int SS_PIN_B = 47;
 MFRC522 rfid_b(SS_PIN_B, RST_PIN_B); // 后置RFID感应模块
 byte nuidPICC_B[4];
 
@@ -46,9 +43,9 @@ byte rfidMap[6][4] = {
   {125,00,189,121}
   }; // 测试用标签表
 
-const int EN = 6; // 电机使能，接L298N ENA与ENB
-const int IN1 = 7; // 接L298N IN1与IN3
-const int IN2 = 8; // 接L298N IN2与IN4
+const int EN = 8; // 电机使能，接L298N ENA与ENB
+const int IN1 = 9; // 接L298N IN1与IN3
+const int IN2 = 10; // 接L298N IN2与IN4
 
 Servo myservo; // 转向舵机
 const int init_pos = 85;
@@ -57,8 +54,8 @@ bool FAIL_8266 = false; // wifi连接状态
 
 
 void setup() {
-  Serial.begin(9600); 
-  ESP8266.begin(9600);
+  Serial.begin(9600);
+  Serial1.begin(9600);
   SPI.begin();
   rfid_f.PCD_Init();
   rfid_b.PCD_Init();
@@ -69,10 +66,10 @@ void setup() {
   pinMode(A0,INPUT);
   pinMode(A1,OUTPUT);
   
-  ESP8266.println("AT+RST");
+  Serial1.println("AT+RST");
   Serial.println("Reset ESP8266...");
   delay(1000);
-  if (ESP8266.find("OK")) {
+  if (Serial1.find("OK")) {
     Serial.println("ESP8266 is ready");
     connectWiFi();
   }
@@ -84,22 +81,22 @@ void setup() {
 }
 
 bool connectWiFi() { // find OK 存在问题，即使连接成功也无法找到OK
-  ESP8266.println("AT+CWJAP=\"Xiaomi_agv\",\"xiaomiagv\"");
+  Serial1.println("AT+CWJAP=\"Xiaomi_agv\",\"xiaomiagv\"");
   Serial.println("Connecting AP...");
   delay(6000);
-  ESP8266.println("AT+CIPSTART=\"TCP\",\"192.168.31.164\",5005");
+  Serial1.println("AT+CIPSTART=\"TCP\",\"192.168.31.164\",5005");
   Serial.println("Connecting AGVServer...");
   delay(4000);
-  ESP8266.println("AT+CIPSEND");
+  Serial1.println("AT+CIPSEND");
   delay(1000);
-  ESP8266.println("This is AGV0");
+  Serial1.println("This is AGV0");
   delay(1000);
   flushESP8266();
   return true;
 }
 
 void flushESP8266() {
-  while(ESP8266.read()>=0){}
+  while(Serial1.read()>=0){}
 }
 
 // 电机运转， pwm为0~255的值，dir为 'f' 正转，dir为 'b' 反转
@@ -193,12 +190,12 @@ void printStr(String *buffer, byte bufferSize) {
 }
 
 void ESPprintDec(byte *buffer, byte bufferSize, String custom) {
-  ESP8266.print(custom);
+  Serial1.print(custom);
   for (byte i = 0; i < bufferSize; i++) {
-    ESP8266.print(buffer[i] < 0x10 ? " 0" : " ");
-    ESP8266.print(buffer[i], DEC);
+    Serial1.print(buffer[i] < 0x10 ? " 0" : " ");
+    Serial1.print(buffer[i], DEC);
   }
-  ESP8266.println();
+  Serial1.println();
 }
 
 String esp_rec = ""; // ESP8266串口缓存
@@ -206,8 +203,8 @@ bool newLineReceived = false;
 
 // 读取ESP8266串口缓存
 void readESP8266() {
-  while (ESP8266.available() > 0) {
-    esp_rec += (char)ESP8266.read();
+  while (Serial1.available() > 0) {
+    esp_rec += (char)Serial1.read();
     newLineReceived = true;
     delay(2); // 不添加延迟会造成无法一次读取全部串口缓存
   }
