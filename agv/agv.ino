@@ -1,10 +1,9 @@
 /*
- * 2017/12/30 by slw
- * 可通过上位机直接指令行走或根据上位机所给的区段指令集连续行走
+ * 2018/1/18 by slw
+ * 增加pid控制
  * 支持前后标签控制
  * 问题:
  * (1)wifi成功连接后首条指令时而接收不到
- * (2)舵机受干扰严重
  * MFRC522 typical pin layout:
  * -----------------------------------------------------------------------------------------
  *             MFRC522      Arduino       Arduino   Arduino    Arduino          Arduino
@@ -21,7 +20,7 @@
 #include<Servo.h>
 #include<SPI.h>
 #include<Wire.h>
-#include<Metro.h>
+#include<MsTimer2.h>
 
 
 const int RST_PIN_F = 46;
@@ -43,9 +42,12 @@ byte rfidMap[6][4] = {
   {125,00,189,121}
   }; // 测试用标签表
 
-const int EN = 8; // 电机使能，接L298N ENA与ENB
-const int IN1 = 9; // 接L298N IN1与IN3
-const int IN2 = 10; // 接L298N IN2与IN4
+const int ENA = 8; // 电机使能，接L298N ENA
+const int IN1 = 9; // 接L298N IN1
+const int IN2 = 10; // 接L298N IN2
+const int ENB = 12; // 电机使能，接L298N ENB
+const int IN3 = 7; // 接L298N IN3
+const int IN4 = 11; // 接L298N IN4
 
 Servo myservo; // 转向舵机
 const int init_pos = 85;
@@ -60,11 +62,20 @@ void setup() {
   rfid_f.PCD_Init();
   rfid_b.PCD_Init();
   myservo.attach(5);
-  pinMode(EN,OUTPUT);
+  pinMode(ENA,OUTPUT);
   pinMode(IN1,OUTPUT);
   pinMode(IN2,OUTPUT);
-  pinMode(A0,INPUT);
-  pinMode(A1,OUTPUT);
+  pinMode(ENB,OUTPUT);
+  pinMode(IN3,OUTPUT);
+  pinMode(IN4,OUTPUT);
+  pinMode(30,INPUT);
+  pinMode(31,INPUT);
+  pinMode(32,INPUT);
+  pinMode(33,INPUT);
+  attachInterrupt(0,counter_l,CHANGE);
+  attachInterrupt(1,counter_r,CHANGE);
+  MsTimer2::set(150,getSpeed);
+  MsTimer2::start();
   
   Serial1.println("AT+RST");
   Serial.println("Reset ESP8266...");
@@ -100,15 +111,20 @@ void flushESP8266() {
 }
 
 // 电机运转， pwm为0~255的值，dir为 'f' 正转，dir为 'b' 反转
-void go(int pwm,char dir) {
-  analogWrite(EN, pwm);
+void go(int pwm_l,int pwm_r,char dir) {
+  analogWrite(ENA, pwm_l);
+  analogWrite(ENB, pwm_r);
   if (dir=='f') {
     digitalWrite(IN1,HIGH);
     digitalWrite(IN2,LOW);
+    digitalWrite(IN3,HIGH);
+    digitalWrite(IN4,LOW);
   }
   else if (dir=='b') {
     digitalWrite(IN1,LOW);
     digitalWrite(IN2,HIGH);
+    digitalWrite(IN3,LOW);
+    digitalWrite(IN4,HIGH);
   }
 }
 
@@ -116,14 +132,20 @@ void go(int pwm,char dir) {
 void brake() { 
   digitalWrite(IN1,LOW);
   digitalWrite(IN2,LOW);
-  digitalWrite(EN,LOW);
+  digitalWrite(ENA,LOW);
+  digitalWrite(IN3,LOW);
+  digitalWrite(IN4,LOW);
+  digitalWrite(ENB,LOW);
 }
 
 // 急停
 void brake_immediate() {
   digitalWrite(IN1,HIGH);
   digitalWrite(IN2,HIGH);
-  digitalWrite(EN,LOW); 
+  digitalWrite(ENA,LOW); 
+  digitalWrite(IN3,HIGH);
+  digitalWrite(IN4,HIGH);
+  digitalWrite(ENB,LOW);
 }
 
 // 转向
@@ -212,13 +234,21 @@ void readESP8266() {
 
 String cmd = "f000r000"; // dir('f'/'b'),pwm(0~255),turn('r'/'l'),pos(-60~60)
 
+bool checkCmd(String raw_cmd) {
+  if ((raw_cmd[0]=='f'||raw_cmd[0]=='b')&&
+  (raw_cmd.substring(1,4).toInt()>=0&&raw_cmd.substring(1,4).toInt()<=255)&&
+  (raw_cmd[4]=='l'||raw_cmd[4]=='r')&&
+  (raw_cmd.substring(5).toInt()>=-60&&raw_cmd.substring(5).toInt()<=60)) {
+    return true;
+  }
+  else {
+    return false;
+  }
+}
+
 // 识别上位机控制指令
 bool cmdReceive() {
-  if (newLineReceived&&
-  (esp_rec[0]=='f'||esp_rec[0]=='b')&&
-  (esp_rec.substring(1,4).toInt()>=0&&esp_rec.substring(1,4).toInt()<=255)&&
-  (esp_rec[4]=='l'||esp_rec[4]=='r')&&
-  (esp_rec.substring(5).toInt()>=-60&&esp_rec.substring(5).toInt()<=60)) {
+  if (newLineReceived&&checkCmd(esp_rec)) {
     cmd = esp_rec;
     esp_rec = "";
     newLineReceived = false;
@@ -269,38 +299,50 @@ String getZoneCmd(byte *buffer,char card) {
   String theCmd = "pass";
   if (cmdIndex>-1) {
     if (card=='f') {
-      theCmd = cmd_f[cmdIndex];
+      if (checkCmd(cmd_f[cmdIndex])) {
+        theCmd = cmd_f[cmdIndex];
+      }
     }
     else {
-      theCmd = cmd_b[cmdIndex];
+      if (checkCmd(cmd_b[cmdIndex])) {
+        theCmd = cmd_b[cmdIndex];
+      }
     }
-  }
-  if (theCmd=="00000000") {
-    theCmd = "pass";
   }
   return theCmd;
 }
 
 bool safe_f = true; // 前方无障碍
 bool safe_b = true; // 后方无障碍
+void checkDistance() {
+  int dist_f = digitalRead(30)+digitalRead(31);
+  int dist_b = digitalRead(32)+digitalRead(33);
+  if (dist_f<2) {
+    safe_f = false;
+  }
+  else {
+    safe_f = true;
+  }
+  if (dist_b<2) {
+    safe_b = false;
+  }
+  else {
+    safe_b = true;
+  }
+}
 
+int speed_l = 0;
+int speed_r = 0;
 void runByCmd(String cmd) {
   char dir = cmd[0];
   int pwm = cmd.substring(1,4).toInt();
   int pos = cmd.substring(5).toInt();
-  if (safe_f&&dir=='f') {
-    go(pwm,dir);
-    turn(pos);
-  }
-  else if (safe_b&&dir=='b') {
-    go(pwm,dir);
-    turn(pos);
-  }
-  else if (pwm==0) {
+  if (pwm==0) {
     brake_immediate();
   }
-  else{
-    brake();
+  else {
+    go(pwm,pwm,dir);
+    turn(pos);
   }
 }
 
@@ -308,40 +350,41 @@ void runByCmd(String cmd) {
 void loop() {
   readESP8266();
   if (newLineReceived) {
-    Serial.println("esp_rec:"+esp_rec);
+//    Serial.println("esp_rec:"+esp_rec);
   }
   
   if (cmdReceive()) {
-    Serial.println("cmd:"+cmd);
-    runByCmd(cmd);
+//    Serial.println("cmd:"+cmd);
   }
 
   if (zoneReceive()) {
-    Serial.print("rfids:");
-    printDec(rfids,6);
-    Serial.print("cmd_f:");
-    printStr(cmd_f,6);
-    Serial.print("cmd_b:");
-    printStr(cmd_f,6);
+//    Serial.print("rfids:");
+//    printDec(rfids,6);
+//    Serial.print("cmd_f:");
+//    printStr(cmd_f,6);
+//    Serial.print("cmd_b:");
+//    printStr(cmd_f,6);
   }
   
   if (scanRFID_F()) {
     cmd = getZoneCmd(nuidPICC_F,'f');
-    if (cmd!="pass") {
-      runByCmd(cmd);
-    }
-    Serial.print("Scaned Front Card:");
-    printDec(nuidPICC_F,4);
+//    Serial.print("Scaned Front Card:");
+//    printDec(nuidPICC_F,4);
     ESPprintDec(nuidPICC_F,4,"Front:");
   }
   if (scanRFID_B()) {
     cmd = getZoneCmd(nuidPICC_B,'b');
-    if (cmd!="pass") {
-      runByCmd(cmd);
-    }
-    Serial.print("Scaned Back Card:");
-    printDec(nuidPICC_B,4);
+//    Serial.print("Scaned Back Card:");
+//    printDec(nuidPICC_B,4);
     ESPprintDec(nuidPICC_B,4,"Back");
+  }
+
+  checkDistance();
+  if ((safe_f&&cmd[0]=='f')||(safe_b&&cmd[0]=='b')) {
+    runByCmd(cmd);
+  }
+  else {
+    brake_immediate();
   }
 
 //  if (volMetro.check()) {
@@ -349,32 +392,51 @@ void loop() {
 //    Serial.println(vol);
 //  }
 
-  
-//  int rs = digitalRead(A2);
-//  int rc = digitalRead(A3);
-//  int lc = digitalRead(A4);
-//  int ls = digitalRead(A5);
-//  String data = String(rs)+','+String(rc)+','+String(lc)+','+String(ls);
-//  Serial.println(data);
-  
-//  int dist_f = analogRead(A6);
-//  int dist_b = analogRead(A7);
-//  Serial.print(dist_f);
-//  Serial.print(',');
-//  Serial.println(dist_b);
-//  if (dist_f<300) {
-//    safe_f = false;
-//  }
-//  else {
-//    safe_f = true;
-//  }
-//  if (dist_b<300) {
-//    safe_b = false;
-//  }
-//  else {
-//    safe_b = true;
-//  }
-
   newLineReceived = false;
   esp_rec = "";
 }
+
+
+unsigned int count_l = 0;
+unsigned int count_r = 0;
+unsigned int halfPulse_l = 0;
+unsigned int halfPulse_r = 0;
+unsigned int halfPulseBefore_l = 0;
+unsigned int halfPulseBefore_r = 0;
+unsigned long tempTime_l = 0;
+unsigned long tempTime_r = 0;
+unsigned long pulseTimeInterval_l = 1;
+unsigned long pulseTimeInterval_r = 1;
+unsigned long halfPulseTime_l = 0;
+unsigned long halfPulseTime_r = 0;
+
+void counter_l(void) {
+  if (micros()-tempTime_l>10000) {
+    count_l++;
+    pulseTimeInterval_l = micros()-tempTime_l;
+    tempTime_l = micros();
+  }
+}
+
+void counter_r(void) {
+  if (micros()-tempTime_r>10000) {
+    count_r++;
+    pulseTimeInterval_r = micros()-tempTime_r;
+    tempTime_r = micros();
+  }
+}
+
+void getSpeed(void) {
+  halfPulseTime_l = count_l>0? (micros()-tempTime_l):0;
+  halfPulseTime_r = count_r>0? (micros()-tempTime_r):0;
+  halfPulse_l = 100.0*halfPulseTime_l/pulseTimeInterval_l;
+  halfPulse_r = 100.0*halfPulseTime_r/pulseTimeInterval_r;
+  speed_l = (100*count_l-halfPulseBefore_l+halfPulse_l)/6;
+  speed_r = (100*count_r-halfPulseBefore_r+halfPulse_r)/6;
+  Serial1.println(String(speed_l)+' '+String(speed_r));
+  count_l = 0;
+  count_r = 0;
+  halfPulseBefore_l = halfPulse_l;
+  halfPulseBefore_r = halfPulse_r;
+}
+

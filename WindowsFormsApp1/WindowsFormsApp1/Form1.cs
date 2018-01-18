@@ -10,11 +10,15 @@ using System.Windows.Forms;
 using System.Net;
 using System.Net.Sockets;
 using System.IO;
+using MLApp;
 
 namespace WindowsFormsApp1
 {
     public partial class Form1 : Form
     {
+        //private static Type matlabAppType = System.Type.GetTypeFromProgID("Matlab.Application");
+        //private MLApp.MLApp matlab = System.Activator.CreateInstance(matlabAppType) as MLApp.MLApp;
+
         private static string baseDir = Environment.CurrentDirectory;
 
         private static byte[] result = new byte[1024];
@@ -211,6 +215,14 @@ namespace WindowsFormsApp1
                 string txt = File.ReadAllText(@fn);
                 tb_send.Text += ' ' + txt;
             }
+        }
+
+        private void btn_mltest_Click(object sender, EventArgs e)
+        {
+            //matlab.visible = 0;
+            //matlab.execute("cd('" + basedir + "')");
+            //matlab.execute("clear all");
+            //matlab.execute("agv_path");
         }
     }
 }

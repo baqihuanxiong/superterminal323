@@ -17,3 +17,5 @@ C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsAp
 C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csproj.CoreCompileInputs.cache
 C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.exe
 C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.pdb
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\Interop.MLApp.dll
+C:\Users\lw390\Documents\GitHub\superterminal323\WindowsFormsApp1\WindowsFormsApp1\obj\Debug\WiFiRC.csproj.ResolveComReference.cache

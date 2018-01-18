@@ -14,24 +14,27 @@ yb = yf-1*L*sin(theta); % 后轮轴中心y坐标
 
 %% 标签坐标
 c = [0 0;
-    0.24 0.16;
-    0.48 0.16;];
+    -0.24 0.16;
+    -0.48 0.32;
+    -0.48 0.48
+    -0.48 0.64];
 
 %% 转弯方向(右正左负，前f后b)
-p = [33 25 0]*pi/180;
-w = ['f','f','f'];
+p = [-33 -2 30 0 0]*pi/180;
+w = ['f','f','f','f','f'];
 
 %% 求轨迹
 xfs = [];
 xbs = [];
 yfs = [];
 ybs = [];
+ths = [];
 card = 0;
-t_temp = 0;
 
-for t=0:delt_t:15
-    xf = xf+v0*cos(theta-alpha)/cos(alpha)*delt_t;
-    yf = yf+v0*sin(theta-alpha)/cos(alpha)*delt_t;
+for t=0:delt_t:18
+    temp_sign = 0;
+    xf = xf+v0*cos(theta-(-1)^temp_sign*alpha)/cos(alpha)*delt_t;
+    yf = yf+v0*sin(theta-(-1)^temp_sign*alpha)/cos(alpha)*delt_t;
     xb = xb+v0*cos(theta)*delt_t;
     yb = yb+v0*sin(theta)*delt_t;
     temp_dx = xf-xb;
@@ -44,6 +47,7 @@ for t=0:delt_t:15
     newCardScaned = scanRfid(xf,yf,xb,yb,c,w,diameter/2);
     if newCardScaned>0&&newCardScaned~=card
         card = newCardScaned;
+        temp_sign = sign(p(card))==sign(1);
     end
     
     if card>0
@@ -58,6 +62,7 @@ for t=0:delt_t:15
     yfs = [yfs yf];
     xbs = [xbs xb];
     ybs = [ybs yb];
+    ths = [ths theta];
 end
 
 plot(xfs,yfs,'r-',xbs,ybs,'b-');
