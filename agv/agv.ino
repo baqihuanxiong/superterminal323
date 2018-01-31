@@ -21,6 +21,7 @@
 #include<SPI.h>
 #include<Wire.h>
 #include<MsTimer2.h>
+#include<PID_v1.h>
 
 
 const int RST_PIN_F = 46;
@@ -33,14 +34,40 @@ const int SS_PIN_B = 47;
 MFRC522 rfid_b(SS_PIN_B, RST_PIN_B); // 后置RFID感应模块
 byte nuidPICC_B[4];
 
-byte rfidMap[6][4] = {
-  {48,182,131,190},
-  {208,175,140,190},
-  {32,126,119,44},
-  {16,02,189,121},
-  {84,49,104,185},
-  {125,00,189,121}
-  }; // 测试用标签表
+byte rfidMap[32][4] = {
+ {32,79,104,115},  //1
+ {48,82,101,115},  //2
+ {208,136,133,115},//3
+ {96,77,117,115},  //4
+ {00,135,145,115}, //5
+ {192,89,111,115}, //6
+ {80,243,101,115}, //7
+ {128,169,114,115},//8
+ {00,181,109,115}, //9
+ {64,220,121,115}, //10
+ {64,134,115,115}, //11
+ {64,230,103,115}, //12
+ {112,105,95,115}, //13
+ {144,191,134,115},//14
+ {128,35,142,115}, //15
+ {48,69,107,115},  //16
+ {208,181,105,115},//17
+ {16,156,114,115}, //18
+ {240,163,101,115},//19
+ {16,53,106,115},  //20
+ {48,180,108,115}, //21
+ {208,175,140,190},//22
+ {160,74,144,115}, //23
+ {160,19,120,115}, //24
+ {32,126,119,44},  //25
+ {224,18,140,115}, //26
+ {64,19,115,115},  //27
+ {00,78,109,115},  //28
+ {128,70,118,115}, //29
+ {176,129,110,115},//30
+ {48,182,131,190}, //31
+ {208,90,126,115}  //32
+}; // 测试用标签表
 
 const int ENA = 8; // 电机使能，接L298N ENA
 const int IN1 = 9; // 接L298N IN1
@@ -49,8 +76,20 @@ const int ENB = 12; // 电机使能，接L298N ENB
 const int IN3 = 7; // 接L298N IN3
 const int IN4 = 11; // 接L298N IN4
 
+double pwmSet_l,speed_l,pwmOut_l;
+double pwmSet_r,speed_r,pwmOut_r;
+double posSet,posErro,posOut;
+PID pid_l(&speed_l,&pwmOut_l,&pwmSet_l,0.55,0.35,0,P_ON_E,DIRECT);
+PID pid_r(&speed_r,&pwmOut_r,&pwmSet_r,0.55,0.35,0,P_ON_E,DIRECT);
+PID pid_p(&posErro,&posOut,&posSet,0.85,0,0,DIRECT);
+
 Servo myservo; // 转向舵机
 const int init_pos = 85;
+
+const int CLK = 22;
+const int SI = 24;
+bool PixelArray[128];
+bool whiteLineCovered = false;
 
 bool FAIL_8266 = false; // wifi连接状态
 
@@ -68,14 +107,35 @@ void setup() {
   pinMode(ENB,OUTPUT);
   pinMode(IN3,OUTPUT);
   pinMode(IN4,OUTPUT);
+  pinMode(CLK,OUTPUT);
+  pinMode(SI,OUTPUT);
   pinMode(30,INPUT);
   pinMode(31,INPUT);
   pinMode(32,INPUT);
   pinMode(33,INPUT);
+  
+  digitalWrite(SI, HIGH);
+  digitalWrite(CLK, HIGH);
+  digitalWrite(SI, LOW);
+  digitalWrite(CLK, LOW);
+  for(byte i=0;i<128;i++) {
+    digitalWrite(CLK, HIGH);
+    digitalWrite(CLK, LOW);
+  }
+  
   attachInterrupt(0,counter_l,CHANGE);
   attachInterrupt(1,counter_r,CHANGE);
+  
   MsTimer2::set(150,getSpeed);
   MsTimer2::start();
+  pid_l.SetMode(AUTOMATIC);
+  pid_r.SetMode(AUTOMATIC);
+  pid_p.SetMode(AUTOMATIC);
+  pid_l.SetSampleTime(150);
+  pid_r.SetSampleTime(150);
+  pid_p.SetSampleTime(150);
+  pid_p.SetOutputLimits(-20,20);
+  posSet = 0;
   
   Serial1.println("AT+RST");
   Serial.println("Reset ESP8266...");
@@ -233,6 +293,8 @@ void readESP8266() {
 }
 
 String cmd = "f000r000"; // dir('f'/'b'),pwm(0~255),turn('r'/'l'),pos(-60~60)
+bool cmdReceived = false;
+long receiveTime = 0;
 
 bool checkCmd(String raw_cmd) {
   if ((raw_cmd[0]=='f'||raw_cmd[0]=='b')&&
@@ -263,13 +325,14 @@ bool cmdReceive() {
 byte rfids[6] = {0,0,0,0,0,0};
 String cmd_f[6] = {"","","","","",""};
 String cmd_b[6] = {"","","","","",""};
+
 bool zoneReceive() {
   if (newLineReceived&&esp_rec.startsWith("rfids")) {
     byte numRfid = (esp_rec.length()-5)/20;
     for(byte i=0;i<numRfid;i++) {
-      rfids[i] = esp_rec.substring(6+20*i,7+20*i).toInt();
-      cmd_f[i] = esp_rec.substring(8+i*20,16+i*20);
-      cmd_b[i] = esp_rec.substring(17+i*20,25+i*20);
+      rfids[i] = esp_rec.substring(6+22*i,9+22*i).toInt();
+      cmd_f[i] = esp_rec.substring(10+i*22,18+i*22);
+      cmd_b[i] = esp_rec.substring(19+i*22,27+i*22);
     }
     esp_rec = "";
     newLineReceived = false;
@@ -296,7 +359,7 @@ String getZoneCmd(byte *buffer,char card) {
       }
     }
   }
-  String theCmd = "pass";
+  String theCmd = "00000000";
   if (cmdIndex>-1) {
     if (card=='f') {
       if (checkCmd(cmd_f[cmdIndex])) {
@@ -314,6 +377,7 @@ String getZoneCmd(byte *buffer,char card) {
 
 bool safe_f = true; // 前方无障碍
 bool safe_b = true; // 后方无障碍
+
 void checkDistance() {
   int dist_f = digitalRead(30)+digitalRead(31);
   int dist_b = digitalRead(32)+digitalRead(33);
@@ -331,8 +395,26 @@ void checkDistance() {
   }
 }
 
-int speed_l = 0;
-int speed_r = 0;
+void runByPID(String cmd) {
+  char dir = cmd[0];
+  int pwm = cmd.substring(1,4).toInt();
+  int pos = cmd.substring(5).toInt();
+  pwmSet_l = pos==0? pwm:pwm*(1+0.00611*pos);
+  pwmSet_r = pos==0? pwm:pwm*(1-0.00611*pos);
+  if (pwm==0) {
+    brake_immediate();
+  }
+  else {
+    go(pwmOut_l,pwmOut_r,dir);
+    if (cmdReceived) {
+      turn(pos);
+    }
+    else {
+      turn(posOut);
+    }
+  }
+}
+
 void runByCmd(String cmd) {
   char dir = cmd[0];
   int pwm = cmd.substring(1,4).toInt();
@@ -363,17 +445,30 @@ void loop() {
 //    Serial.print("cmd_f:");
 //    printStr(cmd_f,6);
 //    Serial.print("cmd_b:");
-//    printStr(cmd_f,6);
+//    printStr(cmd_b,6);
+//    tone(13,1500);
   }
   
   if (scanRFID_F()) {
-    cmd = getZoneCmd(nuidPICC_F,'f');
+    String theCmd = getZoneCmd(nuidPICC_F,'f');
+    if (theCmd!="00000000") {
+      cmd = theCmd;
+      cmdReceived = true;
+      receiveTime = millis();
+//      tone(13,2000);
+    }
 //    Serial.print("Scaned Front Card:");
 //    printDec(nuidPICC_F,4);
     ESPprintDec(nuidPICC_F,4,"Front:");
   }
   if (scanRFID_B()) {
-    cmd = getZoneCmd(nuidPICC_B,'b');
+    String theCmd = getZoneCmd(nuidPICC_B,'b');
+    if (theCmd!="00000000") {
+      cmd = theCmd;
+      cmdReceived = true;
+      receiveTime = millis();
+//      tone(13,2000);
+    }
 //    Serial.print("Scaned Back Card:");
 //    printDec(nuidPICC_B,4);
     ESPprintDec(nuidPICC_B,4,"Back");
@@ -381,7 +476,8 @@ void loop() {
 
   checkDistance();
   if ((safe_f&&cmd[0]=='f')||(safe_b&&cmd[0]=='b')) {
-    runByCmd(cmd);
+//    runByCmd(cmd);
+    runByPID(cmd);
   }
   else {
     brake_immediate();
@@ -394,6 +490,11 @@ void loop() {
 
   newLineReceived = false;
   esp_rec = "";
+//  noTone(13);
+  if (millis()-receiveTime>2500) {
+    cmdReceived = false;
+  }
+  
 }
 
 
@@ -431,12 +532,80 @@ void getSpeed(void) {
   halfPulseTime_r = count_r>0? (micros()-tempTime_r):0;
   halfPulse_l = 100.0*halfPulseTime_l/pulseTimeInterval_l;
   halfPulse_r = 100.0*halfPulseTime_r/pulseTimeInterval_r;
-  speed_l = (100*count_l-halfPulseBefore_l+halfPulse_l)/6;
-  speed_r = (100*count_r-halfPulseBefore_r+halfPulse_r)/6;
-  Serial1.println(String(speed_l)+' '+String(speed_r));
+  int theSpeed_l = (100*count_l-halfPulseBefore_l+halfPulse_l)/5;
+  int theSpeed_r = (100*count_r-halfPulseBefore_r+halfPulse_r)/5;
+  if (theSpeed_l<300) {
+    speed_l = theSpeed_l;
+  }
+  if (theSpeed_r<300) {
+    speed_r = theSpeed_r;
+  }
+  
+  getWhiteLine();
+  
+  pid_l.Compute();
+  pid_r.Compute();
+  pid_p.Compute();
+//  Serial1.println(String(speed_l)+' '+String(pwmOut_l)+' '+String(speed_r)+' '+String(pwmOut_r));
+//  Serial1.println(String(posErro)+' '+String(posOut));
   count_l = 0;
   count_r = 0;
   halfPulseBefore_l = halfPulse_l;
   halfPulseBefore_r = halfPulse_r;
+}
+
+void ccd_expose(int microseconds) {
+  digitalWrite(SI, HIGH);
+  digitalWrite(CLK, HIGH);
+  digitalWrite(SI, LOW);
+  digitalWrite(CLK, LOW);
+
+  for(byte i=0;i<128;i++) {
+    delayMicroseconds(microseconds);  //  saturation time.
+    PixelArray[i] = digitalRead(A0);
+    digitalWrite(CLK, HIGH);
+    digitalWrite(CLK, LOW);
+  }
+}
+
+void getWhiteLine() {
+  ccd_expose(100);
+  
+  int countWhite = 0;
+  int countBlack = 0;
+  int startWhite = 0;
+  int endWhite = 127;
+  bool temp_start = false;
+  bool temp_end = false;
+  for(int i=0;i<128;i++) {
+    if (!temp_start&&PixelArray[i]) {
+      startWhite = i;
+      temp_start = true;
+    }
+    if (temp_start&&(!temp_end)&&(!PixelArray[i])) {
+      countBlack++;
+    }
+    else if (temp_start&&(!temp_end)&&PixelArray[i]) {
+      countWhite++;
+    }
+    if (temp_start&&(!temp_end)&&countBlack>2&&countWhite<=2) {
+      startWhite = 0;
+      countWhite = 0;
+      countBlack = 0;
+    }
+    else if (temp_start&&(!temp_end)&&countBlack>2&&countWhite>2) {
+      endWhite = i-countBlack;
+      temp_end = true;
+    }
+  }
+  int width = endWhite-startWhite;
+  if (width>20&&width<55) {
+    posErro = (startWhite+endWhite)/2-63;
+    whiteLineCovered = true;
+  }
+  else {
+    posErro = 0;
+    whiteLineCovered = false;
+  }
 }
 
