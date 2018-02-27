@@ -293,8 +293,10 @@ void readESP8266() {
 }
 
 String cmd = "f000r000"; // dir('f'/'b'),pwm(0~255),turn('r'/'l'),pos(-60~60)
-bool cmdReceived = false;
-long receiveTime = 0;
+bool cmdReceived = false; // 收到标签指定指令
+bool startTurn = false; // 开始转弯信号
+unsigned long temp_mileage = 0; 
+unsigned long mileage = 0; // 里程计
 
 bool checkCmd(String raw_cmd) {
   if ((raw_cmd[0]=='f'||raw_cmd[0]=='b')&&
@@ -406,7 +408,7 @@ void runByPID(String cmd) {
   }
   else {
     go(pwmOut_l,pwmOut_r,dir);
-    if (cmdReceived) {
+    if (startTurn) {
       turn(pos);
     }
     else {
@@ -446,7 +448,6 @@ void loop() {
 //    printStr(cmd_f,6);
 //    Serial.print("cmd_b:");
 //    printStr(cmd_b,6);
-//    tone(13,1500);
   }
   
   if (scanRFID_F()) {
@@ -454,8 +455,7 @@ void loop() {
     if (theCmd!="00000000") {
       cmd = theCmd;
       cmdReceived = true;
-      receiveTime = millis();
-//      tone(13,2000);
+      temp_mileage = mileage; // 记一次里程
     }
 //    Serial.print("Scaned Front Card:");
 //    printDec(nuidPICC_F,4);
@@ -466,8 +466,7 @@ void loop() {
     if (theCmd!="00000000") {
       cmd = theCmd;
       cmdReceived = true;
-      receiveTime = millis();
-//      tone(13,2000);
+      temp_mileage = mileage; // 记一次里程
     }
 //    Serial.print("Scaned Back Card:");
 //    printDec(nuidPICC_B,4);
@@ -483,18 +482,27 @@ void loop() {
     brake_immediate();
   }
 
+  if (cmdReceived) {
+    int mileInterval = mileage-temp_mileage;
+    if (mileInterval>430&&mileInterval<1880) {  // 开始转弯
+      startTurn = true;
+      Serial1.println("st");
+    }
+    else if (mileInterval>1880) { // 完成转弯
+      startTurn = false;
+      cmdReceived = false;
+      Serial1.println("et");
+    }
+  }
+//  Serial1.println(mileage,DEC);
+
 //  if (volMetro.check()) {
 //    float vol = analogRead(A0)/45.0;
-//    Serial.println(vol);
+//    Serial1.println(vol);
 //  }
 
   newLineReceived = false;
   esp_rec = "";
-//  noTone(13);
-  if (millis()-receiveTime>2500) {
-    cmdReceived = false;
-  }
-  
 }
 
 
@@ -540,6 +548,7 @@ void getSpeed(void) {
   if (theSpeed_r<300) {
     speed_r = theSpeed_r;
   }
+  mileage = mileage+(speed_l+speed_r)/2;
   
   getWhiteLine();
   
