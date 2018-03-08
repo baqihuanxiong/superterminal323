@@ -1,7 +1,6 @@
 /*
- * 2018/1/18 by slw
- * 增加pid控制
- * 支持前后标签控制
+ * 2018/2/28 by slw
+ * 
  * 问题:
  * (1)wifi成功连接后首条指令时而接收不到
  * MFRC522 typical pin layout:
@@ -22,74 +21,38 @@
 #include<Wire.h>
 #include<MsTimer2.h>
 #include<PID_v1.h>
+#include"Fieldpro.h"
 
+#define RST_PIN_F 46
+#define SS_PIN_F 49
+#define RST_PIN_B 48
+#define SS_PIN_B 47
+#define ENA 8 // 电机使能，接L298N ENA
+#define IN1 9 // 接L298N IN1
+#define IN2 10 // 接L298N IN2
+#define ENB 12 // 电机使能，接L298N ENB
+#define IN3 7 // 接L298N IN3
+#define IN4 11 // 接L298N IN4
+#define CLK 22 // ccd时钟
+#define SI 24 // ccd触发
 
-const int RST_PIN_F = 46;
-const int SS_PIN_F = 49;
 MFRC522 rfid_f(SS_PIN_F, RST_PIN_F); // 前置RFID感应模块
 byte nuidPICC_F[4]; // 存储前卡识别到的RFID标签id
-
-const int RST_PIN_B = 48;
-const int SS_PIN_B = 47;
-MFRC522 rfid_b(SS_PIN_B, RST_PIN_B); // 后置RFID感应模块
+MFRC522 rfid_b(SS_PIN_B, RST_PIN_B); // 后置RFID感应模块,暂时不用
 byte nuidPICC_B[4];
-
-byte rfidMap[32][4] = {
- {32,79,104,115},  //1
- {48,82,101,115},  //2
- {208,136,133,115},//3
- {96,77,117,115},  //4
- {00,135,145,115}, //5
- {192,89,111,115}, //6
- {80,243,101,115}, //7
- {128,169,114,115},//8
- {00,181,109,115}, //9
- {64,220,121,115}, //10
- {64,134,115,115}, //11
- {64,230,103,115}, //12
- {112,105,95,115}, //13
- {144,191,134,115},//14
- {128,35,142,115}, //15
- {48,69,107,115},  //16
- {208,181,105,115},//17
- {16,156,114,115}, //18
- {240,163,101,115},//19
- {16,53,106,115},  //20
- {48,180,108,115}, //21
- {208,175,140,190},//22
- {160,74,144,115}, //23
- {160,19,120,115}, //24
- {32,126,119,44},  //25
- {224,18,140,115}, //26
- {64,19,115,115},  //27
- {00,78,109,115},  //28
- {128,70,118,115}, //29
- {176,129,110,115},//30
- {48,182,131,190}, //31
- {208,90,126,115}  //32
-}; // 测试用标签表
-
-const int ENA = 8; // 电机使能，接L298N ENA
-const int IN1 = 9; // 接L298N IN1
-const int IN2 = 10; // 接L298N IN2
-const int ENB = 12; // 电机使能，接L298N ENB
-const int IN3 = 7; // 接L298N IN3
-const int IN4 = 11; // 接L298N IN4
 
 double pwmSet_l,speed_l,pwmOut_l;
 double pwmSet_r,speed_r,pwmOut_r;
 double posSet,posErro,posOut;
-PID pid_l(&speed_l,&pwmOut_l,&pwmSet_l,0.55,0.35,0,P_ON_E,DIRECT);
-PID pid_r(&speed_r,&pwmOut_r,&pwmSet_r,0.55,0.35,0,P_ON_E,DIRECT);
-PID pid_p(&posErro,&posOut,&posSet,0.85,0,0,DIRECT);
+PID pid_l(&speed_l,&pwmOut_l,&pwmSet_l,0.55,0.35,0.05,P_ON_E,DIRECT);
+PID pid_r(&speed_r,&pwmOut_r,&pwmSet_r,0.55,0.35,0.05,P_ON_E,DIRECT);
+PID pid_p(&posErro,&posOut,&posSet,0.52,0,0.08,DIRECT);
 
 Servo myservo; // 转向舵机
-const int init_pos = 85;
+const int init_pos = 85; // 舵机初始角
 
-const int CLK = 22;
-const int SI = 24;
-bool PixelArray[128];
-bool whiteLineCovered = false;
+bool PixelArray[128]; // ccd像素向量
+bool whiteLineCovered = false; // 是否在白线上
 
 bool FAIL_8266 = false; // wifi连接状态
 
@@ -134,7 +97,7 @@ void setup() {
   pid_l.SetSampleTime(150);
   pid_r.SetSampleTime(150);
   pid_p.SetSampleTime(150);
-  pid_p.SetOutputLimits(-20,20);
+  pid_p.SetOutputLimits(-15,15);
   posSet = 0;
   
   Serial1.println("AT+RST");
@@ -255,6 +218,21 @@ bool scanRFID_B() {
   return false;
 }
 
+void flushRFID_F() {
+  for (byte i = 0; i < 4; i++) {
+    nuidPICC_F[i] = 0;
+  }
+}
+
+bool compare_Arr(byte *arr1, byte *arr2, byte arrSize) {
+  for (byte i = 0; i < arrSize; i++) {
+    if (arr1[i]!=arr2[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void printDec(byte *buffer, byte bufferSize) {
   for (byte i = 0; i < bufferSize; i++) {
     Serial.print(buffer[i] < 0x10 ? " 0" : " ");
@@ -293,8 +271,13 @@ void readESP8266() {
 }
 
 String cmd = "f000r000"; // dir('f'/'b'),pwm(0~255),turn('r'/'l'),pos(-60~60)
-bool cmdReceived = false; // 收到标签指定指令
+bool loadState = false;  // 空箱行驶
+int runState = 0;  // 0初始状态，1停车待命，2启动前进
+Zone zonePresent,zoneNext;
+bool enterZone = false; // 进入区段信号
+int partProcedure = 0;  // 区段流程序号
 bool startTurn = false; // 开始转弯信号
+bool retreat = false;  // 后退一小段距离信号
 unsigned long temp_mileage = 0; 
 unsigned long mileage = 0; // 里程计
 
@@ -324,18 +307,17 @@ bool cmdReceive() {
 }
 
 // 识别上位机区段指令
-byte rfids[6] = {0,0,0,0,0,0};
-String cmd_f[6] = {"","","","","",""};
-String cmd_b[6] = {"","","","","",""};
-
 bool zoneReceive() {
-  if (newLineReceived&&esp_rec.startsWith("rfids")) {
-    byte numRfid = (esp_rec.length()-5)/20;
-    for(byte i=0;i<numRfid;i++) {
-      rfids[i] = esp_rec.substring(6+22*i,9+22*i).toInt();
-      cmd_f[i] = esp_rec.substring(10+i*22,18+i*22);
-      cmd_b[i] = esp_rec.substring(19+i*22,27+i*22);
-    }
+  if (newLineReceived&&esp_rec.startsWith("z")) {
+    int startCardIndex = esp_rec.substring(1,4).toInt();
+    int procedureIndex = esp_rec.substring(4,6).toInt();
+    int endCardIndex = esp_rec.substring(6).toInt();
+    Procedure procedure = getZoneProcedure(procedureIndex);
+    zoneNext.card_start = rfidMap[startCardIndex-1];
+    zoneNext.card_end = rfidMap[endCardIndex-1];
+    zoneNext.cmds = procedure.cmds;
+    zoneNext.periods = procedure.periods;
+    zoneNext.len = procedure.len;
     esp_rec = "";
     newLineReceived = false;
     return true;
@@ -345,37 +327,13 @@ bool zoneReceive() {
   }
 }
 
-// 通过标签(buffer)查找对应指令
-String getZoneCmd(byte *buffer,char card) {
-  int rfidIndex = 0;
-  for (int i=0;i<sizeof(rfidMap)/4;i++) {
-    if (buffer[0]==rfidMap[i][0]&&buffer[1]==rfidMap[i][1]&&buffer[2]==rfidMap[i][2]&&buffer[3]==rfidMap[i][3]) {
-      rfidIndex = i+1;
-    }
-  }
-  byte cmdIndex = -1;
-  if (rfidIndex>0) {
-    for (byte i=0;i<6;i++) {
-      if (rfids[i]==rfidIndex) {
-        cmdIndex = i;
-      }
-    }
-  }
-  String theCmd = "00000000";
-  if (cmdIndex>-1) {
-    if (card=='f') {
-      if (checkCmd(cmd_f[cmdIndex])) {
-        theCmd = cmd_f[cmdIndex];
-      }
-    }
-    else {
-      if (checkCmd(cmd_b[cmdIndex])) {
-        theCmd = cmd_b[cmdIndex];
-      }
-    }
-  }
-  return theCmd;
+void dispZone(Zone zone) {
+  printDec(zone.card_start,4);
+  printDec(zone.card_end,4);
+  Serial.println(zone.cmds[0]);
+  Serial.println(zone.periods[0]);
 }
+
 
 bool safe_f = true; // 前方无障碍
 bool safe_b = true; // 后方无障碍
@@ -407,6 +365,7 @@ void runByPID(String cmd) {
     brake_immediate();
   }
   else {
+//    go(pwm-15,pwm-15,dir);
     go(pwmOut_l,pwmOut_r,dir);
     if (startTurn) {
       turn(pos);
@@ -432,48 +391,93 @@ void runByCmd(String cmd) {
 
 
 void loop() {
-  readESP8266();
+  readESP8266();  // 读取wifi串口
   if (newLineReceived) {
-//    Serial.println("esp_rec:"+esp_rec);
+    Serial1.println("esp_rec:"+esp_rec);
   }
   
-  if (cmdReceive()) {
+  if (cmdReceive()) {  // 接受上位机控制指令
 //    Serial.println("cmd:"+cmd);
   }
 
-  if (zoneReceive()) {
-//    Serial.print("rfids:");
-//    printDec(rfids,6);
-//    Serial.print("cmd_f:");
-//    printStr(cmd_f,6);
-//    Serial.print("cmd_b:");
-//    printStr(cmd_b,6);
+  if (zoneReceive()) {  // 接受上位机区段指令
+    if (runState==0) {  //首次启动
+      cmd = loadState? CMD_HEAVY:CMD_EMPTY;
+      zonePresent = zoneNext;  // 添加初始区段
+      runState = 2;  // 启动
+    }
+    else if (runState==1) {  // 若当前正在待命则启动前进
+      cmd = loadState? CMD_HEAVY:CMD_EMPTY;
+      runState = 2;  // 启动
+    }
+//    dispZone(zonePresent);
+    Serial1.println("OK");
   }
   
-  if (scanRFID_F()) {
-    String theCmd = getZoneCmd(nuidPICC_F,'f');
-    if (theCmd!="00000000") {
-      cmd = theCmd;
-      cmdReceived = true;
+  if (scanRFID_F()) {  // 前卡得到标签
+    ESPprintDec(nuidPICC_F,4,"F:");
+    ESPprintDec(zonePresent.card_end,4,"C:");
+    if (compare_Arr(nuidPICC_F,zonePresent.card_start,4)) {  // 到达当前区段开始标签（初始区段）
+      Serial1.println("ef");
+      enterZone = true;  // 标记已进入区段
       temp_mileage = mileage; // 记一次里程
     }
-//    Serial.print("Scaned Front Card:");
-//    printDec(nuidPICC_F,4);
-    ESPprintDec(nuidPICC_F,4,"Front:");
+    else if (compare_Arr(nuidPICC_F,zonePresent.card_end,4)) {  // 到达当前区段结束标签
+      Serial1.println(mileage-temp_mileage,DEC);
+      if (compare_Arr(zonePresent.card_end,zoneNext.card_start,4)) {  // 若已得到下一区段
+        Serial1.println("en");
+        zonePresent = zoneNext;  // 更新当前区段
+        enterZone = true;  // 标记已进入区段
+        temp_mileage = mileage; // 记一次里程
+      }
+      else {  // 若未得到下一区段
+        // 进入特殊区段,后退一定距离，待得到下一区段后重启
+        Serial1.println("ew");
+        runState = 1;  // 待命
+        retreat = true;
+        temp_mileage = mileage; // 记一次里程
+      }
+    }
   }
-  if (scanRFID_B()) {
-    String theCmd = getZoneCmd(nuidPICC_B,'b');
-    if (theCmd!="00000000") {
-      cmd = theCmd;
-      cmdReceived = true;
-      temp_mileage = mileage; // 记一次里程
-    }
-//    Serial.print("Scaned Back Card:");
-//    printDec(nuidPICC_B,4);
-    ESPprintDec(nuidPICC_B,4,"Back");
+  
+  if (scanRFID_B()) {  // 后卡得到标签
+//    ESPprintDec(nuidPICC_B,4,"B");
   }
 
-  checkDistance();
+  if (enterZone) {  //  开始区段流程
+    int mileInterval = mileage-temp_mileage;
+    if (partProcedure<zonePresent.len) {  // 区段流程中的第partProcedure段
+      if (mileInterval>zonePresent.periods[partProcedure]&&mileInterval<zonePresent.periods[partProcedure+1]) {  // 开始转弯
+        startTurn = true;
+        cmd = zonePresent.cmds[partProcedure];
+      }
+      else if (mileInterval>zonePresent.periods[partProcedure+1]) {
+        partProcedure++;
+      }
+    }
+    else {  // 区段流程完成
+      startTurn = false;
+      enterZone = false;
+      partProcedure = 0;
+      cmd = loadState? CMD_HEAVY:CMD_EMPTY;
+    }
+  }
+
+  if (retreat) {  // 开始后退
+    int mileInterval = mileage-temp_mileage;
+    if (mileInterval<RETREAT_DISTANCE) {
+      cmd = CMD_RETREAT;
+    }
+    else {
+      retreat = false;
+      cmd = CMD_STOP;
+      flushRFID_F();
+    }
+  }
+  
+//  Serial1.println(mileage,DEC);
+
+  checkDistance();  // 更新障碍物指示
   if ((safe_f&&cmd[0]=='f')||(safe_b&&cmd[0]=='b')) {
 //    runByCmd(cmd);
     runByPID(cmd);
@@ -481,21 +485,7 @@ void loop() {
   else {
     brake_immediate();
   }
-
-  if (cmdReceived) {
-    int mileInterval = mileage-temp_mileage;
-    if (mileInterval>430&&mileInterval<1880) {  // 开始转弯
-      startTurn = true;
-      Serial1.println("st");
-    }
-    else if (mileInterval>1880) { // 完成转弯
-      startTurn = false;
-      cmdReceived = false;
-      Serial1.println("et");
-    }
-  }
-//  Serial1.println(mileage,DEC);
-
+  
 //  if (volMetro.check()) {
 //    float vol = analogRead(A0)/45.0;
 //    Serial1.println(vol);

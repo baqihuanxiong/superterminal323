@@ -31,6 +31,7 @@ def receive():
             print(rec.decode('utf-8'))
 
 
+
 t1 = threading.Thread(target=receive)
 t2 = threading.Thread(target=send)
 t1.start()
