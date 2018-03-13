@@ -279,7 +279,8 @@ int partProcedure = 0;  // 区段流程序号
 bool startTurn = false; // 开始转弯信号
 bool retreat = false;  // 后退一小段距离信号
 unsigned long temp_mileage = 0; 
-unsigned long mileage = 0; // 里程计
+unsigned long mileage = 0;  // 里程计
+unsigned long ms2_time = 0;  // MsTimer2计时器
 
 bool checkCmd(String raw_cmd) {
   if ((raw_cmd[0]=='f'||raw_cmd[0]=='b')&&
@@ -416,26 +417,29 @@ void loop() {
   
   if (scanRFID_F()) {  // 前卡得到标签
     ESPprintDec(nuidPICC_F,4,"F:");
-    ESPprintDec(zonePresent.card_end,4,"C:");
+//    ESPprintDec(zonePresent.card_end,4,"C:");
+
+    unsigned long time_compensate = (micros()-ms2_time)/1000;  // 与timer2时间差
+    double compensate_ratio = time_compensate/150.0;
+
     if (compare_Arr(nuidPICC_F,zonePresent.card_start,4)) {  // 到达当前区段开始标签（初始区段）
       Serial1.println("ef");
       enterZone = true;  // 标记已进入区段
-      temp_mileage = mileage; // 记一次里程
+      temp_mileage = mileage+compensate_ratio*(speed_l+speed_r)/2; // 记一次里程
     }
     else if (compare_Arr(nuidPICC_F,zonePresent.card_end,4)) {  // 到达当前区段结束标签
-      Serial1.println(mileage-temp_mileage,DEC);
       if (compare_Arr(zonePresent.card_end,zoneNext.card_start,4)) {  // 若已得到下一区段
         Serial1.println("en");
         zonePresent = zoneNext;  // 更新当前区段
         enterZone = true;  // 标记已进入区段
-        temp_mileage = mileage; // 记一次里程
+        temp_mileage = mileage+compensate_ratio*(speed_l+speed_r)/2; // 记一次里程
       }
       else {  // 若未得到下一区段
         // 进入特殊区段,后退一定距离，待得到下一区段后重启
         Serial1.println("ew");
         runState = 1;  // 待命
         retreat = true;
-        temp_mileage = mileage; // 记一次里程
+        temp_mileage = mileage+compensate_ratio*(speed_l+speed_r)/2; // 记一次里程
       }
     }
   }
@@ -445,14 +449,18 @@ void loop() {
   }
 
   if (enterZone) {  //  开始区段流程
-    int mileInterval = mileage-temp_mileage;
+    unsigned long time_compensate = (micros()-ms2_time)/1000;  // 与timer2时间差
+    double compensate_ratio = time_compensate/150.0;
+    int mileInterval = mileage+compensate_ratio*(speed_l+speed_r)/2-temp_mileage;
     if (partProcedure<zonePresent.len) {  // 区段流程中的第partProcedure段
       if (mileInterval>zonePresent.periods[partProcedure]&&mileInterval<zonePresent.periods[partProcedure+1]) {  // 开始转弯
         startTurn = true;
         cmd = zonePresent.cmds[partProcedure];
+//        Serial1.println(mileInterval);
       }
       else if (mileInterval>zonePresent.periods[partProcedure+1]) {
         partProcedure++;
+//        Serial1.println(mileInterval);
       }
     }
     else {  // 区段流程完成
@@ -475,7 +483,8 @@ void loop() {
     }
   }
   
-//  Serial1.println(mileage,DEC);
+//  Serial1.println("m"+String(mileage));
+//  Serial1.println(ms2_time,DEC);
 
   checkDistance();  // 更新障碍物指示
   if ((safe_f&&cmd[0]=='f')||(safe_b&&cmd[0]=='b')) {
@@ -526,6 +535,7 @@ void counter_r(void) {
 }
 
 void getSpeed(void) {
+  ms2_time = micros();
   halfPulseTime_l = count_l>0? (micros()-tempTime_l):0;
   halfPulseTime_r = count_r>0? (micros()-tempTime_r):0;
   halfPulse_l = 100.0*halfPulseTime_l/pulseTimeInterval_l;
@@ -599,7 +609,10 @@ void getWhiteLine() {
   }
   int width = endWhite-startWhite;
   if (width>20&&width<55) {
-    posErro = (startWhite+endWhite)/2-63;
+    double thePosErro = (startWhite+endWhite)/2-63;
+    if (abs(thePosErro-posErro)<45) {
+      posErro = thePosErro;
+    }
     whiteLineCovered = true;
   }
   else {
