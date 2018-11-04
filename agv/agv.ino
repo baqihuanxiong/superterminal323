@@ -21,7 +21,11 @@
 #include<Wire.h>
 #include<MsTimer2.h>
 #include<PID_v1.h>
+#include<Adafruit_NeoPixel.h>
 #include"Fieldpro.h"
+#ifdef __AVR__
+  #include <avr/power.h>
+#endif
 
 #define RST_PIN_F 46
 #define SS_PIN_F 49
@@ -35,6 +39,10 @@
 #define IN4 11 // 接L298N IN4
 #define CLK 22 // ccd时钟
 #define SI 24 // ccd触发
+#define LED 40 // 灯光
+#define LEDPIXELS 8 // 灯珠数
+
+Adafruit_NeoPixel led_pixels = Adafruit_NeoPixel(LEDPIXELS,LED,NEO_GRB+NEO_KHZ800);
 
 MFRC522 rfid_f(SS_PIN_F, RST_PIN_F); // 前置RFID感应模块
 byte nuidPICC_F[4]; // 存储前卡识别到的RFID标签id
@@ -44,8 +52,8 @@ byte nuidPICC_B[4];
 double pwmSet_l,speed_l,pwmOut_l;
 double pwmSet_r,speed_r,pwmOut_r;
 double posSet,posErro,posOut;
-PID pid_l(&speed_l,&pwmOut_l,&pwmSet_l,0.55,0.35,0.05,P_ON_E,DIRECT);
-PID pid_r(&speed_r,&pwmOut_r,&pwmSet_r,0.55,0.35,0.05,P_ON_E,DIRECT);
+PID pid_l(&speed_l,&pwmOut_l,&pwmSet_l,0.62,0.35,0.06,P_ON_E,DIRECT);
+PID pid_r(&speed_r,&pwmOut_r,&pwmSet_r,0.62,0.35,0.06,P_ON_E,DIRECT);
 PID pid_p(&posErro,&posOut,&posSet,0.52,0,0.08,DIRECT);
 
 Servo myservo; // 转向舵机
@@ -56,11 +64,21 @@ bool whiteLineCovered = false; // 是否在白线上
 
 bool FAIL_8266 = false; // wifi连接状态
 
+void led_writeRGB(byte r,byte g,byte b,byte brightness) {
+  for(int i=0;i<LEDPIXELS;i++){
+    led_pixels.setPixelColor(i,led_pixels.Color(r,g,b));
+  }
+  led_pixels.setBrightness(brightness);
+  led_pixels.show();
+}
+
 
 void setup() {
   Serial.begin(9600);
-  Serial1.begin(9600);
+  Serial3.begin(4800);
   SPI.begin();
+  led_pixels.begin();
+  led_writeRGB(180,150,10,120);
   rfid_f.PCD_Init();
   rfid_b.PCD_Init();
   myservo.attach(5);
@@ -100,37 +118,38 @@ void setup() {
   pid_p.SetOutputLimits(-15,15);
   posSet = 0;
   
-  Serial1.println("AT+RST");
-  Serial.println("Reset ESP8266...");
-  delay(1000);
-  if (Serial1.find("OK")) {
-    Serial.println("ESP8266 is ready");
-    connectWiFi();
-  }
-  else {
-    Serial.println("Load ESP8266 fail");
-  }
-  
+//  Serial1.println("AT+RST");
+//  Serial.println("Reset ESP8266...");
+//  delay(1000);
+//  if (Serial1.find("OK")) {
+//    Serial.println("ESP8266 is ready");
+//    connectWiFi();
+//  }
+//  else {
+//    Serial.println("Load ESP8266 fail");
+//  }
+  connectWiFi();
   Serial.println("Runing...");
+  led_writeRGB(10,10,180,120);
 }
 
 bool connectWiFi() { // find OK 存在问题，即使连接成功也无法找到OK
-  Serial1.println("AT+CWJAP=\"Xiaomi_agv\",\"xiaomiagv\"");
+  Serial3.println("AT+CWJAP=\"superterminal323\",\"superterminal323\"");
   Serial.println("Connecting AP...");
-  delay(6000);
-  Serial1.println("AT+CIPSTART=\"TCP\",\"192.168.31.164\",5005");
+  delay(5000);
+  Serial3.println("AT+CIPSTART=\"TCP\",\"192.168.1.102\",5005");
   Serial.println("Connecting AGVServer...");
-  delay(4000);
-  Serial1.println("AT+CIPSEND");
+  delay(3000);
+  Serial3.println("AT+CIPSEND");
   delay(1000);
-  Serial1.println("This is AGV0");
+  Serial3.println("This is AGV0");
   delay(1000);
   flushESP8266();
   return true;
 }
 
 void flushESP8266() {
-  while(Serial1.read()>=0){}
+  while(Serial3.read()>=0){}
 }
 
 // 电机运转， pwm为0~255的值，dir为 'f' 正转，dir为 'b' 反转
@@ -250,12 +269,12 @@ void printStr(String *buffer, byte bufferSize) {
 }
 
 void ESPprintDec(byte *buffer, byte bufferSize, String custom) {
-  Serial1.print(custom);
+  Serial3.print(custom);
   for (byte i = 0; i < bufferSize; i++) {
-    Serial1.print(buffer[i] < 0x10 ? " 0" : " ");
-    Serial1.print(buffer[i], DEC);
+    Serial3.print(buffer[i] < 0x10 ? " 0" : " ");
+    Serial3.print(buffer[i], DEC);
   }
-  Serial1.println();
+  Serial3.println();
 }
 
 String esp_rec = ""; // ESP8266串口缓存
@@ -263,8 +282,8 @@ bool newLineReceived = false;
 
 // 读取ESP8266串口缓存
 void readESP8266() {
-  while (Serial1.available() > 0) {
-    esp_rec += (char)Serial1.read();
+  while (Serial3.available() > 0) {
+    esp_rec += (char)Serial3.read();
     newLineReceived = true;
     delay(2); // 不添加延迟会造成无法一次读取全部串口缓存
   }
@@ -328,13 +347,50 @@ bool zoneReceive() {
   }
 }
 
-void dispZone(Zone zone) {
-  printDec(zone.card_start,4);
-  printDec(zone.card_end,4);
-  Serial.println(zone.cmds[0]);
-  Serial.println(zone.periods[0]);
+bool zoneReceive_test() {
+  bool received = false;
+  if (compare_Arr(nuidPICC_F,rfidMap[489-1],4)) {
+    esp_rec = "z15905122";
+    received = true;
+  }
+  else if (compare_Arr(nuidPICC_F,rfidMap[159-1],4)) {
+    esp_rec = "z12200119";
+    received = true;
+  }
+  else if (compare_Arr(nuidPICC_F,rfidMap[122-1],4)) {
+    esp_rec = "z11908082";
+    received = true;
+  }
+  else if (compare_Arr(nuidPICC_F,rfidMap[119-1],4)) {
+    esp_rec = "z08200074";
+    received = true;
+  }
+  else if (compare_Arr(nuidPICC_F,rfidMap[82-1],4)) {
+    esp_rec = "z07403537";
+    received = true;
+  }
+//  else if (compare_Arr(nuidPICC_F,rfidMap[537-1],4)) {
+//    esp_rec = "z00000000";
+//    received = true;
+//  }
+  if (received) {
+    int startCardIndex = esp_rec.substring(1,4).toInt();
+    int procedureIndex = esp_rec.substring(4,6).toInt();
+    int endCardIndex = esp_rec.substring(6).toInt();
+    Procedure procedure = getZoneProcedure(procedureIndex);
+    zoneNext.card_start = rfidMap[startCardIndex-1];
+    zoneNext.card_end = rfidMap[endCardIndex-1];
+    zoneNext.cmds = procedure.cmds;
+    zoneNext.periods = procedure.periods;
+    zoneNext.len = procedure.len;
+    esp_rec = "";
+    newLineReceived = false;
+    return true;
+  }
+  else {
+    return false;
+  }
 }
-
 
 bool safe_f = true; // 前方无障碍
 bool safe_b = true; // 后方无障碍
@@ -392,16 +448,17 @@ void runByCmd(String cmd) {
 
 
 void loop() {
+
   readESP8266();  // 读取wifi串口
   if (newLineReceived) {
-    Serial1.println("esp_rec:"+esp_rec);
+    Serial3.println("esp_rec:"+esp_rec);
   }
   
   if (cmdReceive()) {  // 接受上位机控制指令
 //    Serial.println("cmd:"+cmd);
   }
 
-  if (zoneReceive()) {  // 接受上位机区段指令
+  if (zoneReceive()||zoneReceive_test()) {  // 接受上位机区段指令
     if (runState==0) {  //首次启动
       cmd = loadState? CMD_HEAVY:CMD_EMPTY;
       zonePresent = zoneNext;  // 添加初始区段
@@ -412,8 +469,9 @@ void loop() {
       runState = 2;  // 启动
     }
 //    dispZone(zonePresent);
-    Serial1.println("OK");
+//    Serial1.println("OK");
   }
+  
   
   if (scanRFID_F()) {  // 前卡得到标签
     ESPprintDec(nuidPICC_F,4,"F:");
@@ -423,20 +481,23 @@ void loop() {
     double compensate_ratio = time_compensate/150.0;
 
     if (compare_Arr(nuidPICC_F,zonePresent.card_start,4)) {  // 到达当前区段开始标签（初始区段）
-      Serial1.println("ef");
+//      Serial1.println("ef");
+      led_writeRGB(10,120,10,120);
       enterZone = true;  // 标记已进入区段
       temp_mileage = mileage+compensate_ratio*(speed_l+speed_r)/2; // 记一次里程
     }
     else if (compare_Arr(nuidPICC_F,zonePresent.card_end,4)) {  // 到达当前区段结束标签
       if (compare_Arr(zonePresent.card_end,zoneNext.card_start,4)) {  // 若已得到下一区段
-        Serial1.println("en");
+//        Serial1.println("en");
+        led_writeRGB(10,120,10,120);
         zonePresent = zoneNext;  // 更新当前区段
         enterZone = true;  // 标记已进入区段
         temp_mileage = mileage+compensate_ratio*(speed_l+speed_r)/2; // 记一次里程
       }
       else {  // 若未得到下一区段
         // 进入特殊区段,后退一定距离，待得到下一区段后重启
-        Serial1.println("ew");
+//        Serial1.println("ew");
+        led_writeRGB(150,0,0,120);
         runState = 1;  // 待命
         retreat = true;
         temp_mileage = mileage+compensate_ratio*(speed_l+speed_r)/2; // 记一次里程
@@ -555,8 +616,7 @@ void getSpeed(void) {
   pid_l.Compute();
   pid_r.Compute();
   pid_p.Compute();
-//  Serial1.println(String(speed_l)+' '+String(pwmOut_l)+' '+String(speed_r)+' '+String(pwmOut_r));
-//  Serial1.println(String(posErro)+' '+String(posOut));
+  
   count_l = 0;
   count_r = 0;
   halfPulseBefore_l = halfPulse_l;
@@ -571,7 +631,7 @@ void ccd_expose(int microseconds) {
 
   for(byte i=0;i<128;i++) {
     delayMicroseconds(microseconds);  //  saturation time.
-    PixelArray[i] = digitalRead(A0);
+    PixelArray[i] = digitalRead(A0);  // 白色为1，黑色为0
     digitalWrite(CLK, HIGH);
     digitalWrite(CLK, LOW);
   }
@@ -580,13 +640,13 @@ void ccd_expose(int microseconds) {
 void getWhiteLine() {
   ccd_expose(100);
   
-  int countWhite = 0;
-  int countBlack = 0;
-  int startWhite = 0;
-  int endWhite = 127;
+  int countWhite = 0;  // 白色像素点计数
+  int countBlack = 0;  // 黑色像素点计数
+  int startWhite = 0;  // 白色像素点起始位置
+  int endWhite = 127;  // 白色像素点结束位置
   bool temp_start = false;
   bool temp_end = false;
-  for(int i=0;i<128;i++) {
+  for(int i=0;i<128;i++) {  // 定位白线，滤除小于等于2个像素点的噪音
     if (!temp_start&&PixelArray[i]) {
       startWhite = i;
       temp_start = true;
@@ -608,14 +668,14 @@ void getWhiteLine() {
     }
   }
   int width = endWhite-startWhite;
-  if (width>20&&width<55) {
-    double thePosErro = (startWhite+endWhite)/2-63;
-    if (abs(thePosErro-posErro)<45) {
+  if (width>20&&width<55) {  // 白线宽度在合理的斜率内
+    double thePosErro = (startWhite+endWhite)/2-63;  // 白线与摄像头正中偏差
+    if (abs(thePosErro-posErro)<45) {  // 滤除异常值
       posErro = thePosErro;
     }
     whiteLineCovered = true;
   }
-  else {
+  else {  // 否则不作调整
     posErro = 0;
     whiteLineCovered = false;
   }

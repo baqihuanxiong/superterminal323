@@ -8,24 +8,23 @@ from time import ctime
 PORT = 5005
 NAME = 'TestChat'
 
-test_agv = "192.168.31.136"
-cards = []
-with open(r'C:\Users\lw390\Documents\GitHub\superterminal323\RFID ID.txt','r') as fh:
-	cards = fh.readlines()
-	cards = [line.strip() for line in cards]
-zone = [
-        "z48900159",
-		"z15905123",
-		"z12300119",
-		"z11908082",
-		"z08200080",
-		"z08007109",
-		"z10900107",
-		"z10703172",
-		"z17200405"
-		]
-zone_start = [int(i[1:4]) for i in zone]
-part = 0
+# cards = []
+# with open(r'C:\Users\lw390\Documents\GitHub\superterminal323\RFID ID.txt','r') as fh:
+# 	cards = fh.readlines()
+# 	cards = [line.strip() for line in cards]
+# zone = [
+#         "z48900159",
+# 		"z15905123",
+# 		"z12300119",
+# 		"z11908082",
+# 		"z08200080",
+# 		"z08007109",
+# 		"z10900107",
+# 		"z10703172",
+# 		"z17200405"
+# 		]
+# zone_start = [int(i[1:4]) for i in zone]
+# part = 0
 
 
 class ChatSession(async_chat):
@@ -40,8 +39,8 @@ class ChatSession(async_chat):
         self.data = ""
         self.name = name
         self.part = 0
-        self.push('Welcome to {}'.format(self.server.name).encode('utf-8'))
-        print(self.name+'connected')
+        # self.push('Welcome to {}'.format(self.server.name).encode('utf-8'))
+        print(self.name+' connected')
 
     def collect_incoming_data(self, data):
         self.data += data.decode('utf-8')
@@ -53,35 +52,37 @@ class ChatSession(async_chat):
             self.server.personal(self.data.split(' ',1)[0][1:], self.data.split(' ',1)[1])
         elif self.data.startswith("."):
             if self.data.split('.',1)[1] == 'list':
-                line = ''
+                line =''
                 for session in self.server.sessions:
-                    line += session.name + '\n'
+                    line = session.name + '\n'
                 self.server.personal(self.name, line)
         elif self.data.startswith("F:"):
             card_id = self.data.split(':',1)[1].strip()
-            nextZone = getZone(card_id, self.part)
-            if nextZone:
-                print("push next zone: "+nextZone)
-                self.part += 1
-                self.server.personal(test_agv, nextZone)
+            # nextZone = getZone(card_id, self.part)
+            # if nextZone:
+            #     print("push next zone: "+nextZone)
+            #     self.part += 1
+            #     time.sleep(0.5)
+                # self.server.personal(test_agv, nextZone)
 
         self.data = ""
 
     def handle_close(self):
         self.server.disconnect(self)
         async_chat.handle_close(self)
+        print(self.name+' disconnected')
 
 
-def getZone(id, part):
-    index = 0
-    try:
-        index = cards.index(id)+1
-    except ValueError:
-        print("Unknown card")
-    if index in zone_start:
-        i = zone_start.index(index)
-        if i==part:
-            return zone[i+1]
+# def getZone(id, part):
+#     index = 0
+#     try:
+#         index = cards.index(id)+1
+#     except ValueError:
+#         print("Unknown card")
+#     if index in zone_start:
+#         i = zone_start.index(index)
+#         if i==part:
+#             return zone[i+1]
 
 
 class ChatServer(dispatcher):

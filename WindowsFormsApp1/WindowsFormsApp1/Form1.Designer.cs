@@ -45,17 +45,20 @@
             this.cb_y = new System.Windows.Forms.CheckBox();
             this.cb_x = new System.Windows.Forms.CheckBox();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.checkBox1 = new System.Windows.Forms.CheckBox();
             this.btn_sendFile = new System.Windows.Forms.Button();
             this.btn_send = new System.Windows.Forms.Button();
             this.tb_send = new System.Windows.Forms.TextBox();
             this.btn_clearTB = new System.Windows.Forms.Button();
             this.richTextBox1 = new System.Windows.Forms.RichTextBox();
+            this.tabPage3 = new System.Windows.Forms.TabPage();
+            this.btn_mltest = new System.Windows.Forms.Button();
             this.btn_updateLb = new System.Windows.Forms.Button();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.label4 = new System.Windows.Forms.Label();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
-            this.tabPage3 = new System.Windows.Forms.TabPage();
-            this.btn_mltest = new System.Windows.Forms.Button();
+            this.textBox2 = new System.Windows.Forms.TextBox();
+            this.label5 = new System.Windows.Forms.Label();
             this.tabControl1.SuspendLayout();
             this.tabPage1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
@@ -71,7 +74,8 @@
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(173, 21);
             this.textBox1.TabIndex = 0;
-            this.textBox1.Text = "192.168.31.164:5005";
+            this.textBox1.Text = "192.168.1.100:5005";
+            this.textBox1.TextChanged += new System.EventHandler(this.textBox1_TextChanged);
             // 
             // btn_conn
             // 
@@ -123,7 +127,7 @@
             this.tabPage1.Controls.Add(this.cb_x);
             this.tabPage1.Location = new System.Drawing.Point(4, 22);
             this.tabPage1.Name = "tabPage1";
-            this.tabPage1.Padding = new System.Windows.Forms.Padding(3, 3, 3, 3);
+            this.tabPage1.Padding = new System.Windows.Forms.Padding(3);
             this.tabPage1.Size = new System.Drawing.Size(306, 327);
             this.tabPage1.TabIndex = 0;
             this.tabPage1.Text = "遥控器";
@@ -236,6 +240,9 @@
             // 
             // tabPage2
             // 
+            this.tabPage2.Controls.Add(this.label5);
+            this.tabPage2.Controls.Add(this.textBox2);
+            this.tabPage2.Controls.Add(this.checkBox1);
             this.tabPage2.Controls.Add(this.btn_sendFile);
             this.tabPage2.Controls.Add(this.btn_send);
             this.tabPage2.Controls.Add(this.tb_send);
@@ -243,17 +250,28 @@
             this.tabPage2.Controls.Add(this.richTextBox1);
             this.tabPage2.Location = new System.Drawing.Point(4, 22);
             this.tabPage2.Name = "tabPage2";
-            this.tabPage2.Padding = new System.Windows.Forms.Padding(3, 3, 3, 3);
+            this.tabPage2.Padding = new System.Windows.Forms.Padding(3);
             this.tabPage2.Size = new System.Drawing.Size(306, 327);
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "控制台";
             this.tabPage2.UseVisualStyleBackColor = true;
             // 
+            // checkBox1
+            // 
+            this.checkBox1.AutoSize = true;
+            this.checkBox1.Location = new System.Drawing.Point(86, 282);
+            this.checkBox1.Name = "checkBox1";
+            this.checkBox1.Size = new System.Drawing.Size(72, 16);
+            this.checkBox1.TabIndex = 6;
+            this.checkBox1.Text = "自动重发";
+            this.checkBox1.UseVisualStyleBackColor = true;
+            this.checkBox1.CheckedChanged += new System.EventHandler(this.checkBox1_CheckedChanged);
+            // 
             // btn_sendFile
             // 
             this.btn_sendFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btn_sendFile.Location = new System.Drawing.Point(236, 281);
-            this.btn_sendFile.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.btn_sendFile.Margin = new System.Windows.Forms.Padding(2);
             this.btn_sendFile.Name = "btn_sendFile";
             this.btn_sendFile.Size = new System.Drawing.Size(67, 21);
             this.btn_sendFile.TabIndex = 5;
@@ -265,7 +283,7 @@
             // 
             this.btn_send.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btn_send.Location = new System.Drawing.Point(236, 303);
-            this.btn_send.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.btn_send.Margin = new System.Windows.Forms.Padding(2);
             this.btn_send.Name = "btn_send";
             this.btn_send.Size = new System.Drawing.Size(67, 21);
             this.btn_send.TabIndex = 4;
@@ -278,7 +296,7 @@
             this.tb_send.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.tb_send.Location = new System.Drawing.Point(6, 304);
-            this.tb_send.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.tb_send.Margin = new System.Windows.Forms.Padding(2);
             this.tb_send.Name = "tb_send";
             this.tb_send.Size = new System.Drawing.Size(227, 21);
             this.tb_send.TabIndex = 3;
@@ -287,7 +305,7 @@
             // 
             this.btn_clearTB.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.btn_clearTB.Location = new System.Drawing.Point(6, 281);
-            this.btn_clearTB.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.btn_clearTB.Margin = new System.Windows.Forms.Padding(2);
             this.btn_clearTB.Name = "btn_clearTB";
             this.btn_clearTB.Size = new System.Drawing.Size(74, 21);
             this.btn_clearTB.TabIndex = 1;
@@ -302,12 +320,32 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.richTextBox1.BackColor = System.Drawing.SystemColors.HighlightText;
             this.richTextBox1.Location = new System.Drawing.Point(6, 6);
-            this.richTextBox1.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+            this.richTextBox1.Margin = new System.Windows.Forms.Padding(2);
             this.richTextBox1.Name = "richTextBox1";
             this.richTextBox1.ReadOnly = true;
             this.richTextBox1.Size = new System.Drawing.Size(298, 270);
             this.richTextBox1.TabIndex = 0;
             this.richTextBox1.Text = "";
+            // 
+            // tabPage3
+            // 
+            this.tabPage3.Controls.Add(this.btn_mltest);
+            this.tabPage3.Location = new System.Drawing.Point(4, 22);
+            this.tabPage3.Name = "tabPage3";
+            this.tabPage3.Size = new System.Drawing.Size(306, 327);
+            this.tabPage3.TabIndex = 2;
+            this.tabPage3.Text = "MLApp";
+            this.tabPage3.UseVisualStyleBackColor = true;
+            // 
+            // btn_mltest
+            // 
+            this.btn_mltest.Location = new System.Drawing.Point(4, 4);
+            this.btn_mltest.Name = "btn_mltest";
+            this.btn_mltest.Size = new System.Drawing.Size(75, 23);
+            this.btn_mltest.TabIndex = 0;
+            this.btn_mltest.Text = "mltest";
+            this.btn_mltest.UseVisualStyleBackColor = true;
+            this.btn_mltest.Click += new System.EventHandler(this.btn_mltest_Click);
             // 
             // btn_updateLb
             // 
@@ -339,25 +377,22 @@
             this.openFileDialog1.FileName = "openFileDialog1";
             this.openFileDialog1.Filter = "(*.txt)|*.txt";
             // 
-            // tabPage3
+            // textBox2
             // 
-            this.tabPage3.Controls.Add(this.btn_mltest);
-            this.tabPage3.Location = new System.Drawing.Point(4, 22);
-            this.tabPage3.Name = "tabPage3";
-            this.tabPage3.Size = new System.Drawing.Size(306, 327);
-            this.tabPage3.TabIndex = 2;
-            this.tabPage3.Text = "MLApp";
-            this.tabPage3.UseVisualStyleBackColor = true;
+            this.textBox2.Location = new System.Drawing.Point(154, 280);
+            this.textBox2.Name = "textBox2";
+            this.textBox2.Size = new System.Drawing.Size(52, 21);
+            this.textBox2.TabIndex = 7;
+            this.textBox2.Text = "1000";
             // 
-            // btn_mltest
+            // label5
             // 
-            this.btn_mltest.Location = new System.Drawing.Point(4, 4);
-            this.btn_mltest.Name = "btn_mltest";
-            this.btn_mltest.Size = new System.Drawing.Size(75, 23);
-            this.btn_mltest.TabIndex = 0;
-            this.btn_mltest.Text = "mltest";
-            this.btn_mltest.UseVisualStyleBackColor = true;
-            this.btn_mltest.Click += new System.EventHandler(this.btn_mltest_Click);
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(208, 283);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(17, 12);
+            this.label5.TabIndex = 8;
+            this.label5.Text = "ms";
             // 
             // Form1
             // 
@@ -371,7 +406,7 @@
             this.Controls.Add(this.listBox1);
             this.Controls.Add(this.btn_conn);
             this.Controls.Add(this.textBox1);
-            this.MinimumSize = new System.Drawing.Size(500, 298);
+            this.MinimumSize = new System.Drawing.Size(500, 297);
             this.Name = "Form1";
             this.Text = "遥控器";
             this.tabControl1.ResumeLayout(false);
@@ -415,6 +450,9 @@
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
         private System.Windows.Forms.TabPage tabPage3;
         private System.Windows.Forms.Button btn_mltest;
+        private System.Windows.Forms.CheckBox checkBox1;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.TextBox textBox2;
     }
 }
 

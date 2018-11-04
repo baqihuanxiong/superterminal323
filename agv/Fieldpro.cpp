@@ -48,7 +48,7 @@ Procedure getZoneProcedure(int index) {
   }
   else if (index==3) {  // 16-24左转
     static String p_cmds[1] = {"f105r-60"};
-    static int p_periods[2] = {165,1660};
+    static int p_periods[2] = {165,1605};
     Procedure p;
     p.cmds = p_cmds;
     p.periods = p_periods;
@@ -57,7 +57,7 @@ Procedure getZoneProcedure(int index) {
   }
   else if (index==4) {  // 16-24右转
     static String p_cmds[1] = {"f105r60"};
-    static int p_periods[2] = {165,1660};
+    static int p_periods[2] = {165,1605};
     Procedure p;
     p.cmds = p_cmds;
     p.periods = p_periods;
@@ -66,7 +66,7 @@ Procedure getZoneProcedure(int index) {
   }
   else if (index==5) {  // 24-16左转
     static String p_cmds[1] = {"f105r-60"};
-    static int p_periods[2] = {500,1900};
+    static int p_periods[2] = {500,1910};
     Procedure p;
     p.cmds = p_cmds;
     p.periods = p_periods;
@@ -75,7 +75,7 @@ Procedure getZoneProcedure(int index) {
   }
   else if (index==6) {  // 24-16右转
     static String p_cmds[1] = {"f105r60"};
-    static int p_periods[2] = {500,1900};
+    static int p_periods[2] = {500,1910};
     Procedure p;
     p.cmds = p_cmds;
     p.periods = p_periods;
@@ -84,7 +84,7 @@ Procedure getZoneProcedure(int index) {
   }
   else if (index==7) {  // 向左相邻换道
     static String p_cmds[2] = {"f105r-48","f105r60"};
-    static int p_periods[3] = {0,950,1910};
+    static int p_periods[3] = {0,945,1910};
     Procedure p;
     p.cmds = p_cmds;
     p.periods = p_periods;
@@ -93,7 +93,7 @@ Procedure getZoneProcedure(int index) {
   }
   else if (index==8) {  // 向右相邻换道
     static String p_cmds[2] = {"f105r48","f105r-60"};
-    static int p_periods[3] = {0,950,1910};
+    static int p_periods[3] = {0,945,1910};
     Procedure p;
     p.cmds = p_cmds;
     p.periods = p_periods;

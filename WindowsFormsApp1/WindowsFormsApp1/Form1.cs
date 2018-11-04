@@ -37,6 +37,7 @@ namespace WindowsFormsApp1
         {
             if (!connState)
             {
+                clientSock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 string connString = textBox1.Text;
                 IPAddress ip = IPAddress.Parse(connString.Split(':')[0]);
                 int port = int.Parse(connString.Split(':')[1]);
@@ -47,9 +48,9 @@ namespace WindowsFormsApp1
                     btn_conn.Text = "断开连接";
                     connState = true;
                 }
-                catch
+                catch(Exception ex)
                 {
-                    MessageBox.Show("连接失败");
+                    MessageBox.Show(ex.Message);
                 }
             }
             else
@@ -223,6 +224,16 @@ namespace WindowsFormsApp1
             //matlab.execute("cd('" + basedir + "')");
             //matlab.execute("clear all");
             //matlab.execute("agv_path");
+        }
+
+        private void textBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }

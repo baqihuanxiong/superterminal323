@@ -1,8 +1,9 @@
 from socket import *
 import threading
+import time
 
 
-HOST = '192.168.31.164'
+HOST = '192.168.1.100'
 PORT = 5005
 BUFSIZ = 1024
 ADDR = (HOST, PORT)
@@ -18,9 +19,17 @@ def send():
             continue
         cmd = data.split(' ')
         if len(cmd) > 1:
-        	if cmd[1] == "readtxt":
-	        	with open(data.split(' ')[2],'r') as f:
-	        		data = data.split(' ')[0]+' '+f.read()
+            if cmd[1] == "readtxt":
+                with open(data.split(' ')[2],'r') as f:
+                    data = cmd[0]+' '+f.read()
+            if cmd[1] == "repeat":
+                data = cmd[0]+' '+cmd[2]
+                try:
+                    while True:
+                        tcpCliSock.send((data+'\r\n').encode('utf-8'))
+                        time.sleep(float(cmd[3]))
+                except KeyboardInterrupt:
+                    pass
         tcpCliSock.send((data+'\r\n').encode('utf-8'))
 
 
@@ -38,4 +47,3 @@ t1.start()
 t2.start()
 t1.join()
 t2.join()
-
